@@ -28,6 +28,7 @@ class ACO:
         N = [None] * self.num_cities # store numerators
         P = [None] * self.num_cities # list to hold probability of next transition
         denominator = 0.0
+        epsilon = 1e-10  # Small constant to avoid division by zero
 
         # calculate numerator and denominator
         for i in range(self.num_cities):
@@ -43,7 +44,7 @@ class ACO:
             if i in visited:
                 continue
             else:
-                P[i] = N[i] / denominator
+                P[i] = N[i] / (denominator + epsilon)
 
         return P
 
@@ -112,31 +113,8 @@ class ACO:
         return tours
     
     
-#     def execute(self, iterations):
-#         for i in range(iterations):
-#             tours = self.tour_all_ants()
-#         print(self.tour_dict)
-#         print(len(self.tour_dict.items()))
-#         print(self.tours_created)
-    
     def execute(self):
         self.tour_all_ants()
-        
-        
-                    
-
-# def gen_test_matrix(n):
-#     D = []
-#     for i in range(n):
-#         row = []
-#         for j in range(n):
-#             r = random.randint(1,75)
-#             if i == j:
-#                 row.append(0.0)
-#             else:
-#                 row.append(r)
-#         D.append(row)
-#     return D
 
 
 def gen_distance_matrix(filename):
@@ -162,11 +140,10 @@ def gen_distance_matrix(filename):
 D = gen_distance_matrix('source_brazil.xml')
 
 
-aco = ACO(D, 5, 57, 1, 2, 0.3)
+aco = ACO(D, 1000, 57, 1, 2, 0.3)
 n = 10000
-td = dict()
 while len(aco.tour_dict.items()) <= n:
         aco.execute()
         if len(aco.tour_dict.items()) >= n:
             ranked = sorted(aco.tour_dict.items(), key=lambda tup: tup[1])
-            print(ranked)
+            print(ranked[1:20])
