@@ -1,0 +1,172 @@
+import random
+import numpy as np
+
+class ACO:
+    
+    def __init__(self, graph, n_a, n_c, a, b, rho):
+        self.D = graph
+        self.num_ants = n_a
+        self.num_cities = n_c
+        self.alpha = a
+        self.beta = b
+        self.rho = rho
+        self.tour_dict = dict()
+        self.T = [[ 0.1 for i in range(self.num_cities) ] for j in range(self.num_cities)]
+        self.H = [[0 if i == j else round(1 / self.D[i][j], 4) for j in range(self.num_cities)] for i in range(self.num_cities)]
+        self.tours_created = 0
+        
+    
+    def calculate_transition_probabilities(self, ant_tour, visited):
+        """
+        Takes an ant's current tour and the set of visited cities.
+        Calculates the probabilities of moving to unvisited cities (not the current city) 
+        based on pheromone levels and distances.
+        Adjusts the probabilities accordingly and returns a list of tuples containing city 
+        index and its probability for the ant to move there.
+        """
+        current_city = ant_tour[-1]
+        N = [None] * self.num_cities # store numerators
+        P = [None] * self.num_cities # list to hold probability of next transition
+        denominator = 0.0
+
+        # calculate numerator and denominator
+        for i in range(self.num_cities):
+            if i in visited:
+                P[i] = 0.0
+                N[i] = 0.0
+            else:
+                N[i] = self.T[current_city][i] ** self.alpha * self.H[current_city][i] ** self.beta
+                denominator += N[i]
+
+        # calculate prbabilities
+        for i in range(self.num_cities):
+            if i in visited:
+                continue
+            else:
+                P[i] = N[i] / denominator
+
+        return P
+
+    
+    def update_pheromones(self, tours):
+        for i in range(self.num_cities):
+            for j in range(self.num_cities):
+                self.T[i][j] *= (1 - self.rho) # perform evaporation on pheromone model
+
+        # iterate ant tours
+        for tour in tours:
+            tour_distance = sum(self.D[tour[i]][tour[i + 1]] for i in range(len(tour) - 1))
+            pheromone_deposit = 1/tour_distance
+            # update pheromone model based on the tours distance
+            for i in range(len(tour) - 1):
+                self.T[tour[i]][tour[i + 1]] += pheromone_deposit
+    
+    
+    def tour_all_ants(self):
+        """
+        For all ants, generates a route from a random start point
+        """
+        tours = []
+        for i in range(self.num_ants):
+            ant_tour = []
+            visited = set()
+            start_city = random.randint(0, self.num_cities-1)
+            ant_tour.append(start_city)
+            visited.add(start_city)
+            # generate tour for ant i
+            while len(visited) < self.num_cities:
+                P = self.calculate_transition_probabilities(ant_tour, visited) # calculate transition probabilities
+                if len(visited) == self.num_cities - 1: # 1 city left to visit
+                    ant_tour.append(P.index(max(P)))
+                    visited.add(P.index(max(P)))
+                    ant_tour.append(start_city)
+                    break
+                else: # otherwise, atleast 2 cities to move to
+                    next_city = 0
+                    CP = 0
+                    r = random.random()
+                    for j in range(len(P)):
+                        CP += P[j]
+                        if CP >= r:
+                            next_city = j
+                            break
+                    ant_tour.append(next_city)
+                    visited.add(next_city)
+                    P = []
+            for tour in tours:
+                dist = 0
+                tour_tuple = tuple(tour)
+                for i in range(len(tour) - 1):
+                    dist += self.D[tour[i]][tour[i+1]]
+                if tour_tuple in self.tour_dict:
+                    if self.tour_dict[tour_tuple] > dist:
+                        self.tour_dict[tour_tuple] = dist
+                else:
+                    self.tour_dict[tour_tuple] = dist
+                dist = 0
+                
+            tours.append(ant_tour) # append ants tour to tour list
+        # update pheromone model
+        self.update_pheromones(tours)
+    
+        return tours
+    
+    
+#     def execute(self, iterations):
+#         for i in range(iterations):
+#             tours = self.tour_all_ants()
+#         print(self.tour_dict)
+#         print(len(self.tour_dict.items()))
+#         print(self.tours_created)
+    
+    def execute(self):
+        self.tour_all_ants()
+        
+        
+                    
+
+# def gen_test_matrix(n):
+#     D = []
+#     for i in range(n):
+#         row = []
+#         for j in range(n):
+#             r = random.randint(1,75)
+#             if i == j:
+#                 row.append(0.0)
+#             else:
+#                 row.append(r)
+#         D.append(row)
+#     return D
+
+
+def gen_distance_matrix(filename):
+    file = open(filename, 'r')
+    D = []
+    row = []
+    incity = False
+    for line in file:
+        if "<vertex>" in line: # new city, skip current line
+            incity = True
+            row = []
+            continue
+
+        if "</vertex>" in line: # end city
+            D.append(row)
+            incity = False
+
+        if incity:
+            n = float(line.split('"')[1])
+            row.append(n)
+    return D
+
+D = gen_distance_matrix('source_brazil.xml')
+
+
+aco = ACO(D, 5, 57, 1, 2, 0.3)
+n = 10000
+td = dict()
+while len(aco.tour_dict.items()) <= n:
+        aco.execute()
+        if len(aco.tour_dict.items()) >= n:
+            ranked = sorted(aco.tour_dict.items(), key=lambda tup: tup[1])
+            print(ranked)
